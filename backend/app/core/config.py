@@ -1,14 +1,23 @@
-import os
-from dotenv import load_dotenv
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-load_dotenv()
 
-class Settings:
-    PROJECT_NAME: str = os.getenv("PROJECT_NAME", "ResearchFlow")
-    MYSQL_HOST: str = os.getenv("MYSQL_HOST", "127.0.0.1")
-    MYSQL_PORT: int = int(os.getenv("MYSQL_PORT", 3306))
-    MYSQL_USER: str = os.getenv("MYSQL_USER", "root")
-    MYSQL_PASSWORD: str = os.getenv("MYSQL_PASSWORD", "123456")
-    MYSQL_DB: str = os.getenv("MYSQL_DB", "researchflow")
+class Settings(BaseSettings):
+    PROJECT_NAME: str = "ResearchFlow"
+    API_V1_STR: str = "/api"
+
+    MYSQL_HOST: str = "127.0.0.1"
+    MYSQL_PORT: int = 3306
+    MYSQL_USER: str = "root"
+    MYSQL_PASSWORD: str = "123456"
+    MYSQL_DB: str = "researchflow"
+
+    BACKEND_CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
+
 
 settings = Settings()
