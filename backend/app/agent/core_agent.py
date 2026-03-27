@@ -1,5 +1,5 @@
 from langchain.agents import create_agent
-from langchain_core.messages import HumanMessage
+from langchain.messages import HumanMessage
 
 from app.services.llm_service import llm_service
 from app.tools import TOOLS
@@ -15,16 +15,15 @@ class ResearchFlowAgent:
             system_prompt=(
                 "You are ResearchFlow, an AI research assistant. "
                 "Help the user with research-related questions. "
+                "When useful, first classify the user's task to understand whether it is "
+                "a research task, compare task, summary task, or general task. "
+                "If it is a compare task, prefer using the comparison tool. "
+                "If it is a research task, prefer using the local research search tool. "
+                "If search results are long or the user asks for a concise note, "
+                "interview answer, or engineering-style explanation, then use the summarization tool. "
                 "When the user asks about the project name, use the appropriate tool. "
                 "When the user asks about the agent role or responsibility, use the appropriate tool. "
-                "When the user asks about LangChain, LangGraph, RAG, middleware, "
-                "structured output, or other research concepts, prefer using the "
-                "local research search tool first if it is helpful. "
-                "If search results are lengthy or the user asks for a concise explanation, "
-                "study note, interview answer, or engineering summary, then use the "
-                "summarization tool after searching. "
-                "If no tool is needed, answer directly. "
-                "Keep the final answer clear, concise, and grounded in the tool result when available."
+                "Keep the final answer clear, concise, and grounded in tool results when available."
             ),
             name="research_assistant",
         )
