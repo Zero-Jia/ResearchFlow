@@ -2,7 +2,7 @@ from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
 
 from app.services.llm_service import llm_service
-from app.tools.simple_tools import TOOLS
+from app.tools import TOOLS
 
 
 class ResearchFlowAgent:
@@ -17,8 +17,11 @@ class ResearchFlowAgent:
                 "Help the user with research-related questions. "
                 "When the user asks about the project name, use the appropriate tool. "
                 "When the user asks about the agent role or responsibility, use the appropriate tool. "
+                "When the user asks about LangChain, LangGraph, RAG, middleware, "
+                "structured output, or other research concepts, prefer using the "
+                "local research search tool first if it is helpful. "
                 "If no tool is needed, answer directly. "
-                "Keep the answer clear and concise."
+                "Keep the answer clear, concise, and grounded in the tool result when available."
             ),
             name="research_assistant",
         )
