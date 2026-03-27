@@ -1,4 +1,4 @@
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
@@ -13,14 +13,19 @@ class LLMService:
             temperature=settings.LLM_TEMPERATURE,
         )
 
+    def get_client(self) -> ChatOpenAI:
+        return self.client
+
     def chat(self, message: str) -> str:
         messages = [
             SystemMessage(
-                content="You are ResearchFlow, an AI research assistant."
+                content=(
+                    "You are ResearchFlow, an AI research assistant. "
+                    "You should provide clear, accurate, and structured answers."
+                )
             ),
-            HumanMessage(content=message)
+            HumanMessage(content=message),
         ]
-
         response = self.client.invoke(messages)
         return response.content
 
