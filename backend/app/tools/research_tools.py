@@ -51,3 +51,54 @@ def search_research_knowledge(query: str) -> str:
         )
 
     return "\n\n".join(lines)
+
+
+def _split_sentences(text: str) -> list[str]:
+    raw_parts = text.replace("\n", " ").split(". ")
+    sentences = []
+
+    for part in raw_parts:
+        part = part.strip()
+        if not part:
+            continue
+        if not part.endswith("."):
+            part += "."
+        sentences.append(part)
+
+    return sentences
+
+
+@tool
+def summarize_research_content(content: str, focus: str = "general") -> str:
+    """
+    Summarize retrieved research content into a shorter, cleaner answer.
+    Use this tool after search results are available and the user wants
+    a concise explanation, study note, interview summary, or engineering-focused summary.
+    """
+    if not content or content.strip() == "":
+        return "No content provided for summarization."
+
+    sentences = _split_sentences(content)
+
+    if not sentences:
+        return "No meaningful content was found to summarize."
+
+    # 规则摘要：先保留前几句核心信息
+    selected = sentences[:3]
+    summary = " ".join(selected).strip()
+
+    if focus == "interview":
+        return (
+            "Interview-style summary:\n"
+            f"{summary}\n"
+            "Key takeaway: Focus on what the concept is, why it is useful, and when to use it."
+        )
+
+    if focus == "engineering":
+        return (
+            "Engineering-focused summary:\n"
+            f"{summary}\n"
+            "Key takeaway: Emphasize implementation value, system design role, and practical usage."
+        )
+
+    return f"Summary:\n{summary}"

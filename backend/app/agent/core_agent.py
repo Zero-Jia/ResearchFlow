@@ -20,8 +20,11 @@ class ResearchFlowAgent:
                 "When the user asks about LangChain, LangGraph, RAG, middleware, "
                 "structured output, or other research concepts, prefer using the "
                 "local research search tool first if it is helpful. "
+                "If search results are lengthy or the user asks for a concise explanation, "
+                "study note, interview answer, or engineering summary, then use the "
+                "summarization tool after searching. "
                 "If no tool is needed, answer directly. "
-                "Keep the answer clear, concise, and grounded in the tool result when available."
+                "Keep the final answer clear, concise, and grounded in the tool result when available."
             ),
             name="research_assistant",
         )
