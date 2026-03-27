@@ -13,6 +13,11 @@ class Settings(BaseSettings):
 
     BACKEND_CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
 
+    LLM_API_KEY: str = ""
+    LLM_BASE_URL: str = ""
+    LLM_MODEL: str = "deepseek-chat"
+    LLM_TEMPERATURE: float = 0.7
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
