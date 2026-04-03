@@ -2,7 +2,7 @@ from langchain.agents import create_agent
 from langchain.messages import HumanMessage
 
 from app.services.llm_service import llm_service
-from app.tools import TOOLS
+from app.tools import RESEARCH_TOOLS
 
 
 class ResearchFlowAgent:
@@ -11,7 +11,7 @@ class ResearchFlowAgent:
 
         self.agent = create_agent(
             model=self.model,
-            tools=TOOLS,
+            tools=RESEARCH_TOOLS,
             system_prompt=(
                 "You are ResearchFlow, an AI research assistant. "
                 "Help the user with research-related questions. "

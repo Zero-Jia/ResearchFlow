@@ -6,11 +6,19 @@ from app.tools.research_tools import (
     compare_research_topics,
 )
 
-TOOLS = [
+from app.tools.job_tools import classify_job_task
+
+RESEARCH_TOOLS = [
     get_current_project_name,
     explain_agent_role,
     search_research_knowledge,
     summarize_research_content,
     classify_research_task,
     compare_research_topics,
+]
+
+JOB_TOOLS = [
+    get_current_project_name,
+    explain_agent_role,
+    classify_job_task,
 ]

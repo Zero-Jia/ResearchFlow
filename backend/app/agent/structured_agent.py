@@ -3,7 +3,7 @@ from langchain.messages import HumanMessage
 
 from app.schemas.report import ResearchReport
 from app.services.llm_service import llm_service
-from app.tools import TOOLS
+from app.tools import RESEARCH_TOOLS
 
 
 class StructuredResearchFlowAgent:
@@ -12,7 +12,7 @@ class StructuredResearchFlowAgent:
 
         self.agent = create_agent(
             model=self.model,
-            tools=TOOLS,
+            tools=RESEARCH_TOOLS,
             response_format=ResearchReport,
             system_prompt=(
                 "You are ResearchFlow, an AI research assistant. "
