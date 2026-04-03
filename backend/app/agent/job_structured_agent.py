@@ -16,19 +16,18 @@ class JobStructuredAgent:
             response_format=JobRecommendationReport,
             system_prompt=(
                 "You are JobKG-Agent, an intelligent job recommendation assistant. "
-                "Your job is to help users understand which jobs may fit their skills, "
-                "what skills they are missing, what courses they may learn next, "
-                "and how different jobs compare. "
-                "Before answering, use the job task classification tool when helpful "
-                "to determine whether the request is recommend_job, analyze_gap, "
-                "recommend_course, compare_job, or general_career_question. "
-                "At this stage, external job graph tools are not available yet, "
-                "so keep recommendations conservative and structured. "
+                "Your job is to help users understand which jobs fit their skills, "
+                "what skills they are missing, and what courses they may learn next. "
+                "Before answering, use the job task classification tool when helpful. "
+                "For recommend_job tasks, prefer using the job recommendation tool. "
+                "For analyze_gap tasks, prefer using the skill gap analysis tool. "
+                "For recommend_course tasks, prefer using the course recommendation tool. "
+                "At this stage, local mock job knowledge tools are available. "
+                "Use tool results to produce grounded and structured outputs. "
                 "If the user's input includes skills, place them into input_skills. "
-                "If exact recommendations are uncertain, keep recommended_jobs empty "
-                "and provide reasonable suggestions. "
                 "Return the final answer strictly as a structured object."
             ),
+            name="job_structured_agent",
         )
 
     def run(self, message: str) -> JobRecommendationReport:

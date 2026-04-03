@@ -6,7 +6,12 @@ from app.tools.research_tools import (
     compare_research_topics,
 )
 
-from app.tools.job_tools import classify_job_task
+from app.tools.job_tools import (
+    classify_job_task,
+    recommend_jobs_by_skills,
+    analyze_skill_gap_for_job,
+    recommend_courses_for_missing_skills
+)
 
 RESEARCH_TOOLS = [
     get_current_project_name,
@@ -21,4 +26,7 @@ JOB_TOOLS = [
     get_current_project_name,
     explain_agent_role,
     classify_job_task,
+    recommend_jobs_by_skills,
+    analyze_skill_gap_for_job,
+    recommend_courses_for_missing_skills
 ]
