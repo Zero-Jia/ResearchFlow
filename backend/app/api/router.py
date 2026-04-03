@@ -7,6 +7,7 @@ from app.api.routes.research_test import router as research_test_router
 from app.api.routes.compare_test import router as compare_test_router
 from app.api.routes.report_test import router as report_test_router
 from app.api.routes.research_task import router as research_task_router
+from app.api.routes.job_test import router as job_test_router
 
 api_router = APIRouter()
 
@@ -18,3 +19,4 @@ api_router.include_router(research_test_router, tags=["Research"])
 api_router.include_router(compare_test_router, tags=["Compare"])
 api_router.include_router(report_test_router, tags=["Report"])
 api_router.include_router(research_task_router, tags=["Research Task"])
+api_router.include_router(job_test_router, tags=["Job"])

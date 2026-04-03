@@ -1,9 +1,11 @@
 from pydantic import BaseModel, Field
+from app.schemas.job_report import JobRecommendationReport
 
 
-class JobTestRequest(BaseModel):
+class JobReportTestRequest(BaseModel):
     question: str = Field(..., min_length=1, description="Job recommendation question")
 
 
-class JobTestResponse(BaseModel):
-    message: str
+class JobReportTestResponse(BaseModel):
+    question: str
+    report: JobRecommendationReport
