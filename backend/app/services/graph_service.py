@@ -22,7 +22,7 @@ class GraphService:
         """
 
         with neo4j_config.driver.session(database=neo4j_config.database) as session:
-            session.run( 
+            session.run(
                 query,
                 job_name=job_name,
                 category=category,
@@ -106,6 +106,62 @@ class GraphService:
                     "name": record["name"],
                     "category": record["category"],
                     "description": record["description"],
+                }
+                for record in result
+            ]
+
+    def get_jobs_with_required_skills(self) -> List[Dict[str, Any]]:
+        query = """
+        MATCH (j:Job)-[:REQUIRES]->(s:Skill)
+        RETURN j.name AS job_name, collect(s.name) AS required_skills
+        ORDER BY job_name
+        """
+
+        with neo4j_config.driver.session(database=neo4j_config.database) as session:
+            result = session.run(query)
+            return [
+                {
+                    "job_name": record["job_name"],
+                    "required_skills": list(record["required_skills"]),
+                }
+                for record in result
+            ]
+
+    def get_job_by_name(self, job_name: str) -> Dict[str, Any] | None:
+        query = """
+        MATCH (j:Job {name: $job_name})
+        RETURN j.name AS name, j.category AS category, j.description AS description
+        LIMIT 1
+        """
+
+        with neo4j_config.driver.session(database=neo4j_config.database) as session:
+            record = session.run(query, job_name=job_name).single()
+            if not record:
+                return None
+            return {
+                "name": record["name"],
+                "category": record["category"],
+                "description": record["description"],
+            }
+
+    def get_courses_for_skills(self, skills: List[str]) -> List[Dict[str, Any]]:
+        if not skills:
+            return []
+
+        query = """
+        MATCH (c:Course)-[:TEACHES]->(s:Skill)
+        WHERE s.name IN $skills
+        RETURN c.name AS course_name, c.platform AS platform, collect(DISTINCT s.name) AS covered_skills
+        ORDER BY course_name
+        """
+
+        with neo4j_config.driver.session(database=neo4j_config.database) as session:
+            result = session.run(query, skills=skills)
+            return [
+                {
+                    "course_name": record["course_name"],
+                    "platform": record["platform"],
+                    "covered_skills": list(record["covered_skills"]),
                 }
                 for record in result
             ]

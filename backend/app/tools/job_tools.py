@@ -1,6 +1,7 @@
 from langchain.tools import tool
 
-from app.data.job_kg_mock import JOBS, COURSES, SKILL_ALIASES
+from app.data.job_kg_mock import SKILL_ALIASES
+from app.services.graph_service import graph_service
 
 
 def _normalize_skill(skill: str) -> str:
@@ -80,8 +81,8 @@ def classify_job_task(question: str) -> str:
 @tool
 def recommend_jobs_by_skills(skills_text: str) -> str:
     """
-    Recommend jobs based on the user's current skills.
-    Input should be a natural language sentence or skill list.
+    Recommend jobs based on the user's current skills using the job knowledge graph.
+    Input can be a natural language sentence or a skill list.
     Returns ranked jobs with match scores, matched skills, and missing skills.
     """
     user_skills = _extract_skills_from_text(skills_text)
@@ -89,18 +90,22 @@ def recommend_jobs_by_skills(skills_text: str) -> str:
     if not user_skills:
         return "No recognizable skills were found in the user's input."
 
+    jobs = graph_service.get_jobs_with_required_skills()
+    if not jobs:
+        return "No job data was found in the knowledge graph."
+
     results = []
 
-    for job in JOBS:
+    for job in jobs:
         required_skills = job["required_skills"]
         matched = [skill for skill in required_skills if skill in user_skills]
         missing = [skill for skill in required_skills if skill not in user_skills]
 
-        score = round(len(matched) / len(required_skills), 2)
+        score = round(len(matched) / len(required_skills), 2) if required_skills else 0.0
 
         if score > 0:
             results.append({
-                "job_name": job["name"],
+                "job_name": job["job_name"],
                 "score": score,
                 "matched_skills": matched,
                 "missing_skills": missing,
@@ -127,26 +132,21 @@ def recommend_jobs_by_skills(skills_text: str) -> str:
 @tool
 def analyze_skill_gap_for_job(job_name: str, skills_text: str) -> str:
     """
-    Analyze the gap between a target job and the user's current skills.
+    Analyze the gap between a target job and the user's current skills using the knowledge graph.
     Returns matched skills and missing skills for the target job.
     """
     user_skills = _extract_skills_from_text(skills_text)
 
-    target_job = None
-    for job in JOBS:
-        if job["name"] == job_name:
-            target_job = job
-            break
+    job = graph_service.get_job_by_name(job_name)
+    if job is None:
+        return f"Job '{job_name}' was not found in the knowledge graph."
 
-    if target_job is None:
-        return f"Job '{job_name}' was not found."
-
-    required_skills = target_job["required_skills"]
+    required_skills = graph_service.get_job_required_skills(job_name)
     matched = [skill for skill in required_skills if skill in user_skills]
     missing = [skill for skill in required_skills if skill not in user_skills]
 
     return (
-        f"Job: {target_job['name']}\n"
+        f"Job: {job_name}\n"
         f"Matched Skills: {', '.join(matched) if matched else 'None'}\n"
         f"Missing Skills: {', '.join(missing) if missing else 'None'}"
     )
@@ -155,7 +155,7 @@ def analyze_skill_gap_for_job(job_name: str, skills_text: str) -> str:
 @tool
 def recommend_courses_for_missing_skills(skills_text: str) -> str:
     """
-    Recommend courses for the skills the user wants to improve or learn.
+    Recommend courses for the skills the user wants to improve using the knowledge graph.
     Input can be missing skills or a natural language request mentioning target skills.
     """
     target_skills = _extract_skills_from_text(skills_text)
@@ -163,22 +163,12 @@ def recommend_courses_for_missing_skills(skills_text: str) -> str:
     if not target_skills:
         return "No recognizable target skills were found for course recommendation."
 
-    matched_courses = []
-
-    for course in COURSES:
-        covered = [skill for skill in course["teaches"] if skill in target_skills]
-        if covered:
-            matched_courses.append({
-                "course_name": course["name"],
-                "platform": course["platform"],
-                "covered_skills": covered,
-            })
-
-    if not matched_courses:
+    courses = graph_service.get_courses_for_skills(target_skills)
+    if not courses:
         return "No suitable courses were found for the given skills."
 
     lines = []
-    for idx, item in enumerate(matched_courses, start=1):
+    for idx, item in enumerate(courses, start=1):
         lines.append(
             f"{idx}. Course: {item['course_name']}\n"
             f"   Platform: {item['platform']}\n"

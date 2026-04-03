@@ -19,12 +19,14 @@ class JobStructuredAgent:
                 "Your job is to help users understand which jobs fit their skills, "
                 "what skills they are missing, and what courses they may learn next. "
                 "Before answering, use the job task classification tool when helpful. "
-                "For recommend_job tasks, prefer using the job recommendation tool. "
-                "For analyze_gap tasks, prefer using the skill gap analysis tool. "
-                "For recommend_course tasks, prefer using the course recommendation tool. "
-                "At this stage, local mock job knowledge tools are available. "
+                "For recommend_job tasks, prefer using the graph-based job recommendation tool. "
+                "For analyze_gap tasks, prefer using the graph-based skill gap analysis tool. "
+                "For recommend_course tasks, prefer using the graph-based course recommendation tool. "
                 "Use tool results to produce grounded and structured outputs. "
                 "If the user's input includes skills, place them into input_skills. "
+                "For recommend_job tasks, try to fill recommended_jobs, job_match_scores, "
+                "matched_skills, and missing_skills whenever possible. "
+                "For recommend_course tasks, try to fill course_recommendations whenever possible. "
                 "Return the final answer strictly as a structured object."
             ),
             name="job_structured_agent",
