@@ -14,11 +14,14 @@
             {{ loading ? "加载中..." : "查询历史" }}
           </button>
         </div>
-  
-        <p v-if="error" class="error">{{ error }}</p>
       </div>
   
-      <div v-if="historyItems.length > 0" class="card">
+      <LoadingState v-if="loading" text="正在加载历史记录..." />
+      <ErrorState v-else-if="error" :text="error" />
+      <div v-else-if="historyItems.length === 0 && hasSearched">
+        <EmptyState text="当前用户暂无历史记录" />
+      </div>
+      <div v-else-if="historyItems.length > 0" class="card">
         <h2>历史记录列表</h2>
   
         <table class="history-table">
@@ -48,18 +51,22 @@
           </tbody>
         </table>
       </div>
-  
-      <div v-else-if="!loading && hasSearched" class="card">
-        <p>当前用户暂无历史记录。</p>
-      </div>
     </div>
   </template>
   
   <script>
   import { getJobTaskHistory } from "../api/job";
+  import LoadingState from "../components/LoadingState.vue";
+  import ErrorState from "../components/ErrorState.vue";
+  import EmptyState from "../components/EmptyState.vue";
   
   export default {
     name: "JobHistory",
+    components: {
+      LoadingState,
+      ErrorState,
+      EmptyState,
+    },
     data() {
       return {
         userId: 1,
@@ -140,11 +147,6 @@
     border-radius: 8px;
     padding: 10px 12px;
     width: 120px;
-  }
-  
-  .error {
-    color: #c0392b;
-    margin-top: 12px;
   }
   
   .history-table {

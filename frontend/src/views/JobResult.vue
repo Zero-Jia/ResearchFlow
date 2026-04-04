@@ -5,9 +5,11 @@
       <button @click="$router.push('/job/history')">查看历史记录</button>
     </div>
 
-    <div v-if="loading" class="card">加载中...</div>
-    <div v-else-if="error" class="card error">{{ error }}</div>
-
+    <LoadingState v-if="loading" text="正在加载推荐结果..." />
+    <ErrorState v-else-if="error" :text="error" />
+    <div v-else-if="!result" class="content">
+      <EmptyState text="暂无推荐结果" />
+    </div>
     <div v-else class="content">
       <div class="card">
         <h2>职位推荐结果</h2>
@@ -26,56 +28,19 @@
         <p><strong>任务类型：</strong>{{ result.task_type }}</p>
       </div>
 
-      <div class="card" v-if="result.job_cards && result.job_cards.length > 0">
+      <div v-if="isRecommendTask" class="card">
         <h2>推荐岗位</h2>
-
-        <div
+        <JobCard
           v-for="job in result.job_cards"
           :key="job.job_name"
-          class="job-card"
-        >
-          <h3>{{ job.job_name }}</h3>
-          <p><strong>匹配分数：</strong>{{ job.score }}</p>
-
-          <div class="section">
-            <strong>已匹配技能：</strong>
-            <span
-              v-for="skill in job.matched_skills"
-              :key="skill"
-              class="tag success"
-            >
-              {{ skill }}
-            </span>
-          </div>
-
-          <div class="section">
-            <strong>缺失技能：</strong>
-            <span
-              v-for="skill in job.missing_skills"
-              :key="skill"
-              class="tag warning"
-            >
-              {{ skill }}
-            </span>
-          </div>
-
-          <div class="section">
-            <strong>推荐课程：</strong>
-            <span
-              v-for="course in job.recommended_courses"
-              :key="course"
-              class="tag info"
-            >
-              {{ course }}
-            </span>
-          </div>
-        </div>
+          :job="job"
+        />
       </div>
 
-      <div class="card" v-if="result.comparison">
-        <h2>岗位对比</h2>
-        <p class="multiline">{{ result.comparison }}</p>
-      </div>
+      <ComparisonPanel
+        v-if="isCompareTask && result.comparison"
+        :comparison="result.comparison"
+      />
 
       <div
         class="card"
@@ -94,9 +59,21 @@
 
 <script>
 import { getJobTaskView } from "../api/job";
+import LoadingState from "../components/LoadingState.vue";
+import ErrorState from "../components/ErrorState.vue";
+import EmptyState from "../components/EmptyState.vue";
+import JobCard from "../components/JobCard.vue";
+import ComparisonPanel from "../components/ComparisonPanel.vue";
 
 export default {
   name: "JobResult",
+  components: {
+    LoadingState,
+    ErrorState,
+    EmptyState,
+    JobCard,
+    ComparisonPanel,
+  },
   props: {
     taskId: {
       type: String,
@@ -109,6 +86,14 @@ export default {
       error: "",
       result: null,
     };
+  },
+  computed: {
+    isCompareTask() {
+      return this.result?.task_type === "compare_job";
+    },
+    isRecommendTask() {
+      return this.result?.task_type !== "compare_job";
+    },
   },
   async mounted() {
     await this.fetchResult();
@@ -139,9 +124,9 @@ export default {
 }
 
 .top-actions {
-  margin-bottom: 16px;
   display: flex;
   gap: 12px;
+  margin-bottom: 16px;
 }
 
 button {
@@ -166,26 +151,6 @@ button {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
-.error {
-  color: #c0392b;
-}
-
-.job-card {
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 16px;
-  margin-top: 16px;
-}
-
-.job-card h3 {
-  margin-top: 0;
-}
-
-.section {
-  margin-top: 12px;
-  line-height: 2;
-}
-
 .tag {
   display: inline-block;
   margin-right: 8px;
@@ -194,21 +159,5 @@ button {
   border-radius: 999px;
   background: #e5e7eb;
   font-size: 13px;
-}
-
-.success {
-  background: #d1fae5;
-}
-
-.warning {
-  background: #fef3c7;
-}
-
-.info {
-  background: #dbeafe;
-}
-
-.multiline {
-  white-space: pre-wrap;
 }
 </style>

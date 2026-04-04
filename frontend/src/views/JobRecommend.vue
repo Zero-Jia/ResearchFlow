@@ -32,7 +32,7 @@
           v-model="form.question"
           rows="4"
           placeholder="例如：我会 Python、SQL、Pandas，适合什么岗位？"
-        />
+        ></textarea>
       </div>
 
       <div class="actions">
