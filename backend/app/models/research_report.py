@@ -1,4 +1,3 @@
-# 这张表存任务完成后最终生成的结构化报告。
 from datetime import datetime
 
 from sqlalchemy import Text, DateTime, ForeignKey
@@ -11,12 +10,22 @@ class ResearchReport(Base):
     __tablename__ = "research_reports"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    task_id: Mapped[int] = mapped_column(ForeignKey("research_tasks.id"), nullable=False, unique=True, index=True)
+    task_id: Mapped[int] = mapped_column(
+        ForeignKey("research_tasks.id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
 
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     key_points: Mapped[str] = mapped_column(Text, nullable=True)
     comparison: Mapped[str] = mapped_column(Text, nullable=True)
     sources: Mapped[str] = mapped_column(Text, nullable=True)
     suggestions: Mapped[str] = mapped_column(Text, nullable=True)
+
+    job_match_scores: Mapped[str] = mapped_column(Text, nullable=True)
+    matched_skills: Mapped[str] = mapped_column(Text, nullable=True)
+    missing_skills: Mapped[str] = mapped_column(Text, nullable=True)
+    course_recommendations: Mapped[str] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

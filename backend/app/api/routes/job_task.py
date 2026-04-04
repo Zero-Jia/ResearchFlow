@@ -60,15 +60,8 @@ def get_job_task_detail(task_id: int, db: Session = Depends(get_db)):
     if not task:
         raise HTTPException(status_code=404, detail="Job task not found")
 
-    rebuilt_report = job_service.rebuild_report_from_db(report)
-
-    normalized_skills = []
-    if report and report.sources:
-        try:
-            import json
-            normalized_skills = json.loads(report.sources)
-        except Exception:
-            normalized_skills = []
+    rebuilt_report = job_service.rebuild_report_from_db(task, report)
+    normalized_skills = rebuilt_report.input_skills if rebuilt_report else []
 
     return JobTaskDetailResponse(
         task_id=task.id,

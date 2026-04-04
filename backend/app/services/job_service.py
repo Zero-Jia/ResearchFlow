@@ -21,13 +21,13 @@ def _safe_json_dumps(value) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
-def _safe_json_loads(value: Optional[str]):
-    if not value:
-        return []
+def _safe_json_loads(value: Optional[str], default=None):
+    if value is None or value == "":
+        return default if default is not None else []
     try:
         return json.loads(value)
     except Exception:
-        return []
+        return default if default is not None else []
 
 
 class JobService:
@@ -82,6 +82,10 @@ class JobService:
                 comparison=structured_report.comparison,
                 sources=_safe_json_dumps(normalized_skills),
                 suggestions=_safe_json_dumps(structured_report.suggestions),
+                job_match_scores=_safe_json_dumps(structured_report.job_match_scores),
+                matched_skills=_safe_json_dumps(structured_report.matched_skills),
+                missing_skills=_safe_json_dumps(structured_report.missing_skills),
+                course_recommendations=_safe_json_dumps(structured_report.course_recommendations),
             )
             db.add(report)
             db.commit()
@@ -115,23 +119,27 @@ class JobService:
         return task, report
 
     def rebuild_report_from_db(
-        self, report: Optional[ResearchReport]
+        self, task: ResearchTask, report: Optional[ResearchReport]
     ) -> Optional[JobRecommendationReport]:
         if not report:
             return None
 
-        recommended_jobs = _safe_json_loads(report.key_points)
-        normalized_skills = _safe_json_loads(report.sources)
-        suggestions = _safe_json_loads(report.suggestions)
+        recommended_jobs = _safe_json_loads(report.key_points, default=[])
+        normalized_skills = _safe_json_loads(report.sources, default=[])
+        suggestions = _safe_json_loads(report.suggestions, default=[])
+        job_match_scores = _safe_json_loads(report.job_match_scores, default={})
+        matched_skills = _safe_json_loads(report.matched_skills, default={})
+        missing_skills = _safe_json_loads(report.missing_skills, default={})
+        course_recommendations = _safe_json_loads(report.course_recommendations, default={})
 
         return JobRecommendationReport(
-            task_type="general_career_question",
+            task_type=task.task_type,
             input_skills=normalized_skills,
             recommended_jobs=recommended_jobs,
-            job_match_scores={},
-            matched_skills={},
-            missing_skills={},
-            course_recommendations={},
+            job_match_scores=job_match_scores,
+            matched_skills=matched_skills,
+            missing_skills=missing_skills,
+            course_recommendations=course_recommendations,
             comparison=report.comparison,
             suggestions=suggestions,
         )
