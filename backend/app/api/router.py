@@ -10,6 +10,7 @@ from app.api.routes.research_task import router as research_task_router
 from app.api.routes.job_test import router as job_test_router
 from app.api.routes.graph_test import router as graph_test_router
 from app.api.routes.job_recommendation import router as job_recommendation_router
+from app.api.routes.job_task import router as job_task_router
 
 api_router = APIRouter()
 
@@ -24,3 +25,4 @@ api_router.include_router(research_task_router, tags=["Research Task"])
 api_router.include_router(job_test_router, tags=["Job"])
 api_router.include_router(graph_test_router, tags=["Graph"])
 api_router.include_router(job_recommendation_router, tags=["Job Recommendation"])
+api_router.include_router(job_task_router, tags=["Job Task"])
