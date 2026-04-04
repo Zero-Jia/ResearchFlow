@@ -4,11 +4,15 @@ from app.services.graph_service import graph_service
 
 class GraphViewService:
     def build_job_graph_view(self, job_name: str) -> GraphJobViewResponse | None:
-        job = graph_service.get_job_by_name(job_name)
+        clean_job_name = job_name.strip() if job_name else ""
+        if not clean_job_name:
+            return None
+
+        job = graph_service.get_job_by_name(clean_job_name)
         if job is None:
             return None
 
-        required_skills = graph_service.get_job_required_skills(job_name)
+        required_skills = graph_service.get_job_required_skills(clean_job_name)
 
         skill_items = []
         for skill in required_skills:
@@ -16,7 +20,7 @@ class GraphViewService:
             skill_items.append(
                 GraphSkillItem(
                     name=skill,
-                    courses=courses,
+                    courses=courses or [],
                 )
             )
 

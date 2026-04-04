@@ -64,9 +64,15 @@
         this.error = "";
         this.hasSearched = true;
         this.graphData = null;
-  
+
         try {
-          const res = await getJobGraphView(this.jobName);
+          const cleanJobName = this.jobName.trim();
+          if (!cleanJobName) {
+            this.error = "岗位名称不能为空";
+            return;
+          }
+
+          const res = await getJobGraphView(cleanJobName);
           this.graphData = res.data;
         } catch (err) {
           this.error =
@@ -74,7 +80,7 @@
         } finally {
           this.loading = false;
         }
-      },
+      }
     },
   };
   </script>

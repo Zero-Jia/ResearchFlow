@@ -76,11 +76,19 @@ export default {
       this.error = "";
 
       try {
+        const parsedSkills = this.parseSkills();
+        const cleanQuestion = this.form.question.trim();
+
+        if (!cleanQuestion && parsedSkills.length === 0) {
+          this.error = "问题和技能不能同时为空";
+          return;
+        }
+
         const payload = {
           user_id: this.form.user_id,
           session_id: this.form.session_id,
-          question: this.form.question,
-          skills: this.parseSkills(),
+          question: cleanQuestion,
+          skills: parsedSkills,
         };
 
         const res = await createJobTask(payload);
@@ -93,7 +101,7 @@ export default {
       } finally {
         this.loading = false;
       }
-    },
+    }
   },
 };
 </script>

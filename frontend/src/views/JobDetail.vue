@@ -9,7 +9,7 @@
       <LoadingState v-if="loading" text="正在加载任务详情..." />
       <ErrorState v-else-if="error" :text="error" />
       <div v-else-if="!result" class="content">
-        <EmptyState text="暂无任务详情" />
+        <EmptyState text="当前历史任务暂无可展示详情" />
       </div>
       <div v-else class="content">
         <div class="card">

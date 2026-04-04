@@ -7,6 +7,8 @@ class UserProfileService:
     def normalize_skills(self, skills: List[str]) -> List[str]:
         normalized = []
         for skill in skills:
+            if not skill or not skill.strip():
+                continue
             skill_key = skill.strip().lower()
             standard_skill = SKILL_ALIASES.get(skill_key, skill.strip())
             if standard_skill and standard_skill not in normalized:
@@ -14,6 +16,9 @@ class UserProfileService:
         return normalized
 
     def extract_skills_from_question(self, question: str) -> List[str]:
+        if not question:
+            return []
+
         question_lower = question.lower()
         found_skills = []
 
@@ -35,11 +40,16 @@ class UserProfileService:
         return merged
 
     def build_skill_prompt(self, skills: List[str], question: str) -> str:
+        clean_question = question.strip() if question else ""
+
+        if not clean_question:
+            clean_question = "请根据当前技能给出职位推荐建议。"
+
         if not skills:
-            return question
+            return clean_question
 
         skill_text = "、".join(skills)
-        return f"用户当前技能：{skill_text}。问题：{question}"
+        return f"用户当前技能：{skill_text}。问题：{clean_question}"
 
 
 user_profile_service = UserProfileService()

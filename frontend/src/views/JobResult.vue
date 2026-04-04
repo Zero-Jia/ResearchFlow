@@ -9,7 +9,7 @@
     <LoadingState v-if="loading" text="正在加载推荐结果..." />
     <ErrorState v-else-if="error" :text="error" />
     <div v-else-if="!result" class="content">
-      <EmptyState text="暂无推荐结果" />
+      <EmptyState text="当前任务暂无可展示的推荐结果" />
     </div>
     <div v-else class="content">
       <div class="card">

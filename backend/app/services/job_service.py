@@ -39,6 +39,8 @@ class JobService:
         question: str,
         skills: list[str],
     ) -> tuple[ResearchTask, ResearchReport, list[str], JobRecommendationReport]:
+        question = question.strip() if question else ""
+
         normalized_skills = user_profile_service.merge_skills(
             explicit_skills=skills,
             question=question,
@@ -53,8 +55,8 @@ class JobService:
             user_id=user_id,
             session_id=session_id,
             task_type="general_career_question",
-            topic=_extract_topic(question),
-            user_input=question,
+            topic=_extract_topic(question if question else "职位推荐任务"),
+            user_input=question if question else "职位推荐任务",
             status="running",
         )
         db.add(task)
@@ -68,7 +70,7 @@ class JobService:
             task.topic = (
                 structured_report.recommended_jobs[0]
                 if structured_report.recommended_jobs
-                else _extract_topic(question)
+                else _extract_topic(question if question else "职位推荐任务")
             )
             task.status = "completed"
             db.add(task)

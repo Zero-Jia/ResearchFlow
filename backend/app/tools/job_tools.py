@@ -3,8 +3,12 @@ from langchain.tools import tool
 from app.services.graph_service import graph_service
 from app.services.user_profile_service import user_profile_service
 
-def _extract_skills_from_text(text:str)->list[str]:
+
+def _extract_skills_from_text(text: str) -> list[str]:
+    if not text:
+        return []
     return user_profile_service.extract_skills_from_question(text)
+
 
 def _calculate_job_match_score(user_skills: list[str], required_skills: list[str]) -> tuple[float, list[str], list[str]]:
     matched = [skill for skill in required_skills if skill in user_skills]
@@ -193,6 +197,12 @@ def compare_jobs(job_a: str, job_b: str, skills_text: str = "") -> str:
     Compare two jobs based on required skills and optionally the user's current skills.
     Use this tool when the user asks about differences, suitability, or learning order between two jobs.
     """
+    job_a = job_a.strip() if job_a else ""
+    job_b = job_b.strip() if job_b else ""
+
+    if not job_a or not job_b:
+        return "Two valid job names are required for comparison."
+
     info_a = graph_service.get_job_by_name(job_a)
     info_b = graph_service.get_job_by_name(job_b)
 

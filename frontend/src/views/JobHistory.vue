@@ -82,8 +82,14 @@
         this.loading = true;
         this.error = "";
         this.hasSearched = true;
-  
+
         try {
+          if (!this.userId || this.userId <= 0) {
+            this.error = "请输入有效的用户 ID";
+            this.historyItems = [];
+            return;
+          }
+
           const res = await getJobTaskHistory(this.userId);
           this.historyItems = res.data.items || [];
         } catch (err) {

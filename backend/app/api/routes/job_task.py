@@ -17,6 +17,9 @@ router = APIRouter()
 @router.post("/job/task/create", response_model=CreateJobTaskResponse)
 def create_job_task(request: CreateJobTaskRequest, db: Session = Depends(get_db)):
     try:
+        if not request.question.strip() and not request.skills:
+            raise HTTPException(status_code=400, detail="问题和技能不能同时为空")
+
         task, report, normalized_skills, structured_report = job_service.create_job_task_and_report(
             db=db,
             user_id=request.user_id,
@@ -31,6 +34,8 @@ def create_job_task(request: CreateJobTaskRequest, db: Session = Depends(get_db)
             normalized_skills=normalized_skills,
             report=structured_report,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Create job task failed: {str(e)}")
 
