@@ -3,6 +3,7 @@
     <div class="top-actions">
       <button @click="$router.push('/job/recommend')">返回输入页</button>
       <button @click="$router.push('/job/history')">查看历史记录</button>
+      <button @click="$router.push('/graph/view')">查看图谱关系</button>
     </div>
 
     <LoadingState v-if="loading" text="正在加载推荐结果..." />

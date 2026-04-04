@@ -3,6 +3,7 @@ import JobRecommend from "../views/JobRecommend.vue";
 import JobResult from "../views/JobResult.vue";
 import JobHistory from "../views/JobHistory.vue";
 import JobDetail from "../views/JobDetail.vue";
+import GraphView from "../views/GraphView.vue";
 
 const routes = [
   {
@@ -30,6 +31,11 @@ const routes = [
     name: "JobDetail",
     component: JobDetail,
     props: true,
+  },
+  {
+    path: "/graph/view",
+    name: "GraphView",
+    component: GraphView,
   },
 ];
 

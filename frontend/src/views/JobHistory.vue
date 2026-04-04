@@ -2,6 +2,7 @@
     <div class="page">
       <div class="top-actions">
         <button @click="$router.push('/job/recommend')">返回输入页</button>
+        <button @click="$router.push('/graph/view')">查看图谱关系</button>
       </div>
   
       <div class="card search-card">

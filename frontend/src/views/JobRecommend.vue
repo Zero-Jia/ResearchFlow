@@ -3,6 +3,7 @@
     <div class="card">
       <div class="top-actions">
         <button @click="$router.push('/job/history')">查看历史记录</button>
+        <button @click="$router.push('/graph/view')">查看图谱关系</button>
       </div>
 
       <h2>职位推荐输入</h2>
