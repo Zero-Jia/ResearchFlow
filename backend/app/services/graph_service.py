@@ -113,7 +113,10 @@ class GraphService:
     def get_jobs_with_required_skills(self) -> List[Dict[str, Any]]:
         query = """
         MATCH (j:Job)-[:REQUIRES]->(s:Skill)
-        RETURN j.name AS job_name, collect(s.name) AS required_skills
+        RETURN j.name AS job_name,
+            j.category AS category,
+            j.description AS description,
+            collect(s.name) AS required_skills
         ORDER BY job_name
         """
 
@@ -122,6 +125,8 @@ class GraphService:
             return [
                 {
                     "job_name": record["job_name"],
+                    "category": record["category"],
+                    "description": record["description"],
                     "required_skills": list(record["required_skills"]),
                 }
                 for record in result
@@ -165,6 +170,15 @@ class GraphService:
                 }
                 for record in result
             ]
+        
+    def get_two_jobs_required_skills(self, job_a: str, job_b: str) -> Dict[str, List[str]]:
+        skills_a = self.get_job_required_skills(job_a)
+        skills_b = self.get_job_required_skills(job_b)
+
+        return {
+            "job_a_skills": skills_a,
+            "job_b_skills": skills_b,
+        }
 
 
 graph_service = GraphService()

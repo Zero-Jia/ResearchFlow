@@ -20,6 +20,26 @@ def _extract_skills_from_text(text: str) -> list[str]:
     return found_skills
 
 
+def _calculate_job_match_score(user_skills: list[str], required_skills: list[str]) -> tuple[float, list[str], list[str]]:
+    matched = [skill for skill in required_skills if skill in user_skills]
+    missing = [skill for skill in required_skills if skill not in user_skills]
+
+    if not required_skills:
+        return 0.0, matched, missing
+
+    coverage_score = len(matched) / len(required_skills)
+
+    # 核心技能加权：前两个技能视为更关键
+    core_skills = required_skills[:2]
+    core_matched = [skill for skill in core_skills if skill in user_skills]
+
+    core_score = len(core_matched) / len(core_skills) if core_skills else 0.0
+
+    final_score = round(0.7 * coverage_score + 0.3 * core_score, 2)
+
+    return final_score, matched, missing
+
+
 @tool
 def classify_job_task(question: str) -> str:
     """
@@ -98,10 +118,7 @@ def recommend_jobs_by_skills(skills_text: str) -> str:
 
     for job in jobs:
         required_skills = job["required_skills"]
-        matched = [skill for skill in required_skills if skill in user_skills]
-        missing = [skill for skill in required_skills if skill not in user_skills]
-
-        score = round(len(matched) / len(required_skills), 2) if required_skills else 0.0
+        score, matched, missing = _calculate_job_match_score(user_skills, required_skills)
 
         if score > 0:
             results.append({
@@ -109,6 +126,8 @@ def recommend_jobs_by_skills(skills_text: str) -> str:
                 "score": score,
                 "matched_skills": matched,
                 "missing_skills": missing,
+                "category": job["category"],
+                "description": job["description"],
             })
 
     if not results:
@@ -121,7 +140,9 @@ def recommend_jobs_by_skills(skills_text: str) -> str:
     for idx, item in enumerate(top_results, start=1):
         lines.append(
             f"{idx}. Job: {item['job_name']}\n"
+            f"   Category: {item['category']}\n"
             f"   Score: {item['score']}\n"
+            f"   Description: {item['description']}\n"
             f"   Matched Skills: {', '.join(item['matched_skills']) if item['matched_skills'] else 'None'}\n"
             f"   Missing Skills: {', '.join(item['missing_skills']) if item['missing_skills'] else 'None'}"
         )
@@ -147,6 +168,8 @@ def analyze_skill_gap_for_job(job_name: str, skills_text: str) -> str:
 
     return (
         f"Job: {job_name}\n"
+        f"Category: {job['category']}\n"
+        f"Description: {job['description']}\n"
         f"Matched Skills: {', '.join(matched) if matched else 'None'}\n"
         f"Missing Skills: {', '.join(missing) if missing else 'None'}"
     )
@@ -176,3 +199,61 @@ def recommend_courses_for_missing_skills(skills_text: str) -> str:
         )
 
     return "\n\n".join(lines)
+
+
+@tool
+def compare_jobs(job_a: str, job_b: str, skills_text: str = "") -> str:
+    """
+    Compare two jobs based on required skills and optionally the user's current skills.
+    Use this tool when the user asks about differences, suitability, or learning order between two jobs.
+    """
+    info_a = graph_service.get_job_by_name(job_a)
+    info_b = graph_service.get_job_by_name(job_b)
+
+    if info_a is None:
+        return f"Job '{job_a}' was not found in the knowledge graph."
+    if info_b is None:
+        return f"Job '{job_b}' was not found in the knowledge graph."
+
+    skills_info = graph_service.get_two_jobs_required_skills(job_a, job_b)
+    skills_a = skills_info["job_a_skills"]
+    skills_b = skills_info["job_b_skills"]
+
+    shared = sorted(list(set(skills_a) & set(skills_b)))
+    only_a = sorted(list(set(skills_a) - set(skills_b)))
+    only_b = sorted(list(set(skills_b) - set(skills_a)))
+
+    user_skills = _extract_skills_from_text(skills_text) if skills_text else []
+
+    suitability_note = ""
+    if user_skills:
+        score_a, matched_a, missing_a = _calculate_job_match_score(user_skills, skills_a)
+        score_b, matched_b, missing_b = _calculate_job_match_score(user_skills, skills_b)
+
+        if score_a > score_b:
+            better_fit = job_a
+        elif score_b > score_a:
+            better_fit = job_b
+        else:
+            better_fit = "both jobs equally"
+
+        suitability_note = (
+            f"\nUser Fit Analysis:\n"
+            f"- {job_a}: score={score_a}, matched={', '.join(matched_a) if matched_a else 'None'}, "
+            f"missing={', '.join(missing_a) if missing_a else 'None'}\n"
+            f"- {job_b}: score={score_b}, matched={', '.join(matched_b) if matched_b else 'None'}, "
+            f"missing={', '.join(missing_b) if missing_b else 'None'}\n"
+            f"- Better current fit: {better_fit}"
+        )
+
+    return (
+        f"Comparison: {job_a} vs {job_b}\n\n"
+        f"{job_a} Category: {info_a['category']}\n"
+        f"{job_a} Description: {info_a['description']}\n\n"
+        f"{job_b} Category: {info_b['category']}\n"
+        f"{job_b} Description: {info_b['description']}\n\n"
+        f"Shared Skills: {', '.join(shared) if shared else 'None'}\n"
+        f"Only {job_a}: {', '.join(only_a) if only_a else 'None'}\n"
+        f"Only {job_b}: {', '.join(only_b) if only_b else 'None'}"
+        f"{suitability_note}"
+    )

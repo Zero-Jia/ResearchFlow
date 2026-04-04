@@ -10,7 +10,8 @@ from app.tools.job_tools import (
     classify_job_task,
     recommend_jobs_by_skills,
     analyze_skill_gap_for_job,
-    recommend_courses_for_missing_skills
+    recommend_courses_for_missing_skills,
+    compare_jobs
 )
 
 RESEARCH_TOOLS = [
@@ -28,5 +29,6 @@ JOB_TOOLS = [
     classify_job_task,
     recommend_jobs_by_skills,
     analyze_skill_gap_for_job,
-    recommend_courses_for_missing_skills
+    recommend_courses_for_missing_skills,
+    compare_jobs,
 ]
