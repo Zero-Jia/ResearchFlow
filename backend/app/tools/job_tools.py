@@ -1,24 +1,10 @@
 from langchain.tools import tool
 
-from app.data.job_kg_mock import SKILL_ALIASES
 from app.services.graph_service import graph_service
+from app.services.user_profile_service import user_profile_service
 
-
-def _normalize_skill(skill: str) -> str:
-    skill_lower = skill.strip().lower()
-    return SKILL_ALIASES.get(skill_lower, skill.strip())
-
-
-def _extract_skills_from_text(text: str) -> list[str]:
-    text_lower = text.lower()
-    found_skills = []
-
-    for alias, normalized in SKILL_ALIASES.items():
-        if alias.lower() in text_lower and normalized not in found_skills:
-            found_skills.append(normalized)
-
-    return found_skills
-
+def _extract_skills_from_text(text:str)->list[str]:
+    return user_profile_service.extract_skills_from_question(text)
 
 def _calculate_job_match_score(user_skills: list[str], required_skills: list[str]) -> tuple[float, list[str], list[str]]:
     matched = [skill for skill in required_skills if skill in user_skills]
