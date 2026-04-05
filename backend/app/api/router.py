@@ -13,6 +13,7 @@ from app.api.routes.job_recommendation import router as job_recommendation_route
 from app.api.routes.job_task import router as job_task_router
 from app.api.routes.job_view import router as job_view_router
 from app.api.routes.graph_view import router as graph_view_router
+from app.api.routes.job_chat import router as job_chat_router
 
 api_router = APIRouter()
 
@@ -30,3 +31,4 @@ api_router.include_router(job_recommendation_router, tags=["Job Recommendation"]
 api_router.include_router(job_task_router, tags=["Job Task"])
 api_router.include_router(job_view_router, tags=["Job View"])
 api_router.include_router(graph_view_router, tags=["Graph View"])
+api_router.include_router(job_chat_router, tags=["Job Chat"])
