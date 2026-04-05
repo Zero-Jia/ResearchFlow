@@ -14,6 +14,8 @@ from app.api.routes.job_task import router as job_task_router
 from app.api.routes.job_view import router as job_view_router
 from app.api.routes.graph_view import router as graph_view_router
 from app.api.routes.job_chat import router as job_chat_router
+from app.api.routes.auth import router as auth_router
+from app.api.routes.chat_ui import router as chat_ui_router
 
 api_router = APIRouter()
 
@@ -32,3 +34,5 @@ api_router.include_router(job_task_router, tags=["Job Task"])
 api_router.include_router(job_view_router, tags=["Job View"])
 api_router.include_router(graph_view_router, tags=["Graph View"])
 api_router.include_router(job_chat_router, tags=["Job Chat"])
+api_router.include_router(auth_router, tags=["Auth"])
+api_router.include_router(chat_ui_router, tags=["Chat UI"])

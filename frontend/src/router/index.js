@@ -1,47 +1,49 @@
 import { createRouter, createWebHistory } from "vue-router";
-import JobRecommend from "../views/JobRecommend.vue";
-import JobResult from "../views/JobResult.vue";
-import JobHistory from "../views/JobHistory.vue";
-import JobDetail from "../views/JobDetail.vue";
-import GraphView from "../views/GraphView.vue";
+import Login from "../views/Login.vue";
+import Register from "../views/Register.vue";
+import ChatPage from "../views/ChatPage.vue";
+import { isLoggedIn } from "../utils/auth";
 
 const routes = [
   {
     path: "/",
-    redirect: "/job/recommend",
+    redirect: "/chat",
   },
   {
-    path: "/job/recommend",
-    name: "JobRecommend",
-    component: JobRecommend,
+    path: "/login",
+    name: "Login",
+    component: Login,
   },
   {
-    path: "/job/result/:taskId",
-    name: "JobResult",
-    component: JobResult,
-    props: true,
+    path: "/register",
+    name: "Register",
+    component: Register,
   },
   {
-    path: "/job/history",
-    name: "JobHistory",
-    component: JobHistory,
-  },
-  {
-    path: "/job/detail/:taskId",
-    name: "JobDetail",
-    component: JobDetail,
-    props: true,
-  },
-  {
-    path: "/graph/view",
-    name: "GraphView",
-    component: GraphView,
+    path: "/chat",
+    name: "ChatPage",
+    component: ChatPage,
+    meta: { requiresAuth: true },
   },
 ];
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+router.beforeEach((to, from, next) => {
+  if (to.meta.requiresAuth && !isLoggedIn()) {
+    next("/login");
+    return;
+  }
+
+  if ((to.path === "/login" || to.path === "/register") && isLoggedIn()) {
+    next("/chat");
+    return;
+  }
+
+  next();
 });
 
 export default router;

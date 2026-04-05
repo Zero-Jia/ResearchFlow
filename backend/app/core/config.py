@@ -20,8 +20,11 @@ class Settings(BaseSettings):
 
     NEO4J_URI: str = "bolt://localhost:7687"
     NEO4J_USERNAME: str = "neo4j"
-    NEO4J_PASSWORD: str = ""
-    NEO4J_DATABASE: str = "careers"
+    NEO4J_PASSWORD: str = "12345678"
+    NEO4J_DATABASE: str = "neo4j"
+
+    SECRET_KEY: str = "change-this-to-a-random-secret-key"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
 
     model_config = SettingsConfigDict(
         env_file=".env",

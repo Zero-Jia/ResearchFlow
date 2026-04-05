@@ -263,6 +263,48 @@ class JobService:
         )
 
         return structured_report.input_skills, structured_report
+    
+    def render_report_to_text(self, report: JobRecommendationReport) -> str:
+        lines = []
+
+        if report.task_type == "compare_job" and report.comparison:
+            lines.append("岗位对比结果：")
+            lines.append(report.comparison)
+        else:
+            if report.recommended_jobs:
+                lines.append("推荐岗位：")
+                for job_name in report.recommended_jobs:
+                    score = report.job_match_scores.get(job_name, 0.0)
+                    matched = report.matched_skills.get(job_name, [])
+                    missing = report.missing_skills.get(job_name, [])
+
+                    lines.append(f"- {job_name}（匹配分数：{score}）")
+
+                    if matched:
+                        lines.append(f"  已匹配技能：{', '.join(matched)}")
+
+                    if missing:
+                        lines.append(f"  缺失技能：{', '.join(missing)}")
+
+                    related_courses = []
+                    for skill in missing:
+                        for course in report.course_recommendations.get(skill, []):
+                            if course not in related_courses:
+                                related_courses.append(course)
+
+                    if related_courses:
+                        lines.append(f"  推荐课程：{', '.join(related_courses)}")
+
+        if report.suggestions:
+            lines.append("")
+            lines.append("建议：")
+            for item in report.suggestions:
+                lines.append(f"- {item}")
+
+        if not lines:
+            return "已生成职位推荐结果。"
+
+        return "\n".join(lines)
 
 
 job_service = JobService()
