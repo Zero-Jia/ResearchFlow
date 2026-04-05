@@ -1,7 +1,7 @@
 from langchain.agents import create_agent
 from langchain.messages import HumanMessage
-from langgraph.checkpoint.memory import InMemorySaver
 
+from app.agent.job_agent_runtime import shared_job_checkpointer
 from app.schemas.job_report import JobRecommendationReport
 from app.services.llm_service import llm_service
 from app.tools import JOB_TOOLS
@@ -10,7 +10,7 @@ from app.tools import JOB_TOOLS
 class JobMemoryAgent:
     def __init__(self):
         self.model = llm_service.get_client()
-        self.checkpointer = InMemorySaver()
+        self.checkpointer = shared_job_checkpointer
 
         self.agent = create_agent(
             model=self.model,
