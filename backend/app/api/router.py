@@ -17,6 +17,7 @@ from app.api.routes.job_chat import router as job_chat_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.chat_ui import router as chat_ui_router
 from app.api.routes.chat_stream import router as chat_stream_router
+from app.api.routes.chat_reasoning_stream import router as chat_reasoning_stream_router
 
 api_router = APIRouter()
 
@@ -38,3 +39,4 @@ api_router.include_router(job_chat_router, tags=["Job Chat"])
 api_router.include_router(auth_router, tags=["Auth"])
 api_router.include_router(chat_ui_router, tags=["Chat UI"])
 api_router.include_router(chat_stream_router, tags=["Chat Stream"])
+api_router.include_router(chat_reasoning_stream_router, tags=["Chat Reasoning Stream"])

@@ -46,3 +46,32 @@ export async function streamMessage(sessionId, data) {
 
   return response;
 }
+
+export async function streamReasoningMessage(data) {
+  const token = localStorage.getItem("jobkg_token");
+
+  const response = await fetch(
+    "http://127.0.0.1:8000/api/chat/reasoning-stream",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    }
+  );
+
+  if (!response.ok) {
+    let detail = "发送失败";
+    try {
+      const err = await response.json();
+      detail = err.detail || detail;
+    } catch (_) {
+      // 忽略 JSON 解析失败（流式接口很常见）
+    }
+    throw new Error(detail);
+  }
+
+  return response;
+}

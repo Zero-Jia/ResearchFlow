@@ -36,7 +36,17 @@
         <div v-else-if="!currentSession" class="state-text">
           请先在左侧新建或选择一个会话
         </div>
+
         <template v-else>
+          <div v-if="reasoningSteps.length > 0" class="reasoning-panel">
+            <h3>Agent 推理过程</h3>
+            <ul>
+              <li v-for="(item, index) in reasoningSteps" :key="index">
+                [{{ item.step }}] {{ item.text }}
+              </li>
+            </ul>
+          </div>
+
           <div
             v-for="msg in messages"
             :key="msg.id"
@@ -80,7 +90,7 @@ import {
   listSessions,
   createSession,
   listMessages,
-  streamMessage,
+  streamReasoningMessage,
 } from "../api/chat";
 
 export default {
@@ -96,6 +106,7 @@ export default {
       sending: false,
       error: "",
       currentUser: getUser(),
+      reasoningSteps: [],
     };
   },
 
@@ -145,6 +156,7 @@ export default {
       this.currentSession = session;
       this.loadingMessages = true;
       this.error = "";
+      this.reasoningSteps = [];
 
       try {
         const res = await listMessages(session.id);
@@ -163,11 +175,11 @@ export default {
 
       this.sending = true;
       this.error = "";
+      this.reasoningSteps = [];
 
       const userLocalId = `user-${Date.now()}`;
       const assistantLocalId = `assistant-${Date.now()}`;
 
-      // 1. 先把用户消息显示到页面上
       this.messages.push({
         id: userLocalId,
         role: "user",
@@ -175,7 +187,6 @@ export default {
         created_at: new Date().toISOString(),
       });
 
-      // 2. 再创建一个空的 assistant 气泡
       const assistantMessage = {
         id: assistantLocalId,
         role: "assistant",
@@ -188,27 +199,47 @@ export default {
       this.$nextTick(() => this.scrollToBottom());
 
       try {
-        const response = await streamMessage(this.currentSession.id, {
+        const response = await streamReasoningMessage({
+          session_id: this.currentSession.id,
           question: text,
-          skills: [],
         });
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
+        let buffer = "";
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          assistantMessage.content += chunk;
+          buffer += decoder.decode(value, { stream: true });
 
-          // 强制触发视图更新
-          this.messages = [...this.messages];
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+
+            const event = JSON.parse(line);
+
+            if (event.type === "reasoning") {
+              this.reasoningSteps.push({
+                step: event.step,
+                text: event.text,
+              });
+            } else if (event.type === "final") {
+              assistantMessage.content = event.text || "";
+              this.messages = [...this.messages];
+            } else if (event.type === "error") {
+              assistantMessage.content = event.text || "执行失败";
+              this.error = event.text || "执行失败";
+              this.messages = [...this.messages];
+            }
+          }
+
           this.$nextTick(() => this.scrollToBottom());
         }
 
-        // 如果当前标题还是默认标题，就用首条问题更新标题
         if (this.currentSession.title === "新会话") {
           const newTitle = text.slice(0, 20);
           this.currentSession.title = newTitle;
@@ -352,6 +383,31 @@ export default {
   flex: 1;
   overflow-y: auto;
   padding: 24px;
+}
+
+.reasoning-panel {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+
+.reasoning-panel h3 {
+  margin: 0 0 8px 0;
+  font-size: 15px;
+  color: #9a3412;
+}
+
+.reasoning-panel ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.reasoning-panel li {
+  line-height: 1.8;
+  color: #7c2d12;
+  font-size: 14px;
 }
 
 .message-row {
