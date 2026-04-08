@@ -2,10 +2,32 @@ import json
 import re
 from typing import Any
 
+from langchain.chat_models import init_chat_model
 from langchain.tools import tool
 
+from app.core.config import settings
 from app.services.graph_service import graph_service
 from app.services.user_profile_service import user_profile_service
+
+
+ALLOWED_TASK_TYPES = {
+    "recommend_job",
+    "analyze_gap",
+    "recommend_course",
+    "compare_job",
+    "general_career_question",
+    "memory_update",
+    "fallback_llm",
+}
+
+
+llm = init_chat_model(
+    model=settings.LLM_MODEL,
+    model_provider="openai",
+    api_key=settings.LLM_API_KEY,
+    base_url=settings.LLM_BASE_URL,
+    temperature=0.1,
+)
 
 
 def _extract_skills_from_text(text: str) -> list[str]:
@@ -53,6 +75,17 @@ def _safe_get_all_skills() -> list[str]:
         return []
 
 
+def _normalize_and_filter_skills(skills: list[str]) -> list[str]:
+    """
+    统一技能名称，并过滤掉不在图谱技能表中的项，避免 LLM 幻觉。
+    """
+    normalized = user_profile_service.normalize_skills(skills or [])
+    all_skills = set(_safe_get_all_skills())
+    if not all_skills:
+        return normalized
+    return [skill for skill in normalized if skill in all_skills]
+
+
 def _extract_job_names_from_text(text: str) -> list[str]:
     if not text:
         return []
@@ -90,24 +123,12 @@ def _calculate_job_match_score(
 
 
 def _extract_positive_skills_from_text(text: str) -> list[str]:
-    """
-    正向技能抽取：例如“我会 Python、Pandas”
-    这里仍然复用你现有的 user_profile_service.extract_skills_from_question
-    """
     return _extract_skills_from_text(text)
 
 
 def _extract_negative_skills_from_text(text: str) -> list[str]:
     """
-    负向技能抽取：例如
-    - 我不会 SQL
-    - 我没有 SQL
-    - SQL 不是我的技能
-    - 去掉 SQL
-    - 删掉 SQL
-    - 移除 SQL
-
-    返回应该“从记忆里移除”的技能。
+    规则版负向技能抽取（fallback 用）
     """
     if not text:
         return []
@@ -146,36 +167,194 @@ def _extract_negative_skills_from_text(text: str) -> list[str]:
     return sorted(list(set(negative_skills)))
 
 
+def extract_skill_updates_rule_based(
+    previous_skills: list[str],
+    current_text: str,
+) -> dict[str, Any]:
+    """
+    规则版技能更新：作为 LLM 技能抽取失败时的兜底。
+    """
+    previous_skills = sorted(list(set(previous_skills or [])))
+
+    positive_skills = _normalize_and_filter_skills(_extract_positive_skills_from_text(current_text))
+    negative_skills = _normalize_and_filter_skills(_extract_negative_skills_from_text(current_text))
+
+    skill_set = set(previous_skills)
+
+    for skill in negative_skills:
+        if skill in skill_set:
+            skill_set.remove(skill)
+
+    for skill in positive_skills:
+        if skill not in negative_skills:
+            skill_set.add(skill)
+
+    current_skills = sorted(list(skill_set))
+    removed_skills = [skill for skill in previous_skills if skill not in current_skills]
+    added_skills = [skill for skill in current_skills if skill not in previous_skills]
+
+    return {
+        "previous_skills": previous_skills,
+        "current_skills": current_skills,
+        "added_skills": added_skills,
+        "removed_skills": removed_skills,
+        "message": "已根据当前输入更新技能记忆。",
+        "update_source": "rule_fallback",
+    }
+
+
+def normalize_task_type(raw: str) -> str:
+    if not raw:
+        return ""
+
+    text = str(raw).strip()
+
+    if text in ALLOWED_TASK_TYPES:
+        return text
+
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            task_type = str(data.get("task_type", "")).strip()
+            if task_type in ALLOWED_TASK_TYPES:
+                return task_type
+    except Exception:
+        pass
+
+    for task_type in ALLOWED_TASK_TYPES:
+        if task_type in text:
+            return task_type
+
+    return ""
+
+
+def normalize_skill_update_output(raw: str) -> dict[str, list[str]]:
+    """
+    将 LLM 的技能更新输出标准化为：
+    {
+      "added_skills": [...],
+      "removed_skills": [...]
+    }
+    """
+    empty = {"added_skills": [], "removed_skills": []}
+    if not raw:
+        return empty
+
+    text = str(raw).strip()
+
+    try:
+        data = json.loads(text)
+        if not isinstance(data, dict):
+            return empty
+
+        added = data.get("added_skills", [])
+        removed = data.get("removed_skills", [])
+
+        if not isinstance(added, list):
+            added = []
+        if not isinstance(removed, list):
+            removed = []
+
+        return {
+            "added_skills": [str(x).strip() for x in added if str(x).strip()],
+            "removed_skills": [str(x).strip() for x in removed if str(x).strip()],
+        }
+    except Exception:
+        return empty
+
+
+def extract_skill_updates_by_llm(
+    previous_skills: list[str],
+    current_text: str,
+) -> dict[str, Any]:
+    """
+    用 LLM 从用户当前输入中抽取技能增删变化。
+    只抽取“用户明确表达自己会/不会/补充/纠正”的技能，
+    不要把岗位名、目标方向、职业名称误判为技能。
+    """
+    previous_skills = sorted(list(set(previous_skills or [])))
+    all_skills = _safe_get_all_skills()
+
+    prompt = f"""
+你是一个“用户技能记忆更新器”。
+
+你的任务是：根据“用户当前输入”，判断用户是否在这句话里明确表达了：
+1. 新增了自己会的技能
+2. 删除了自己不会/不具备/需要纠正掉的技能
+
+你只能输出 JSON，格式固定如下：
+{{
+  "added_skills": ["技能1", "技能2"],
+  "removed_skills": ["技能3"]
+}}
+
+规则：
+1. 只抽取“用户明确声称自己拥有或不拥有”的技能。
+2. 不要把岗位名、职业方向、目标职位当作技能。
+3. 像“数据分析师”“后端开发工程师”“产品经理”默认是岗位，不是技能。
+4. 用户如果只是问“哪个岗位更适合我”“我想做某岗位”，不要新增技能。
+5. 如果没有明确技能变化，就返回空列表。
+6. 只能使用候选技能列表中的技能名，不要编造新技能。
+7. 不要输出解释，不要输出 markdown，只输出 JSON。
+
+当前已记住的技能：
+{previous_skills}
+
+候选技能列表：
+{all_skills}
+
+用户当前输入：
+{current_text}
+"""
+    answer = llm.invoke(prompt)
+    raw = answer.content if isinstance(answer.content, str) else str(answer.content)
+    parsed = normalize_skill_update_output(raw)
+
+    added_skills = _normalize_and_filter_skills(parsed.get("added_skills", []))
+    removed_skills = _normalize_and_filter_skills(parsed.get("removed_skills", []))
+
+    skill_set = set(previous_skills)
+
+    for skill in removed_skills:
+        if skill in skill_set:
+            skill_set.remove(skill)
+
+    for skill in added_skills:
+        if skill not in removed_skills:
+            skill_set.add(skill)
+
+    current_skills = sorted(list(skill_set))
+
+    return {
+        "previous_skills": previous_skills,
+        "current_skills": current_skills,
+        "added_skills": [skill for skill in current_skills if skill not in previous_skills],
+        "removed_skills": [skill for skill in previous_skills if skill not in current_skills],
+        "message": "已根据当前输入更新技能记忆。",
+        "update_source": "llm_extractor",
+    }
+
+
 def merge_skills_with_correction(
     previous_skills: list[str],
     current_text: str,
 ) -> list[str]:
     """
-    用于 LangGraph prepare_context / memory_update 节点：
-    - 先读取历史已有技能 previous_skills
-    - 再根据当前文本判断新增技能、删除技能
+    保持旧接口不变：
+    优先走 LLM 技能更新，失败时回退到规则版。
     """
-    previous_skills = previous_skills or []
-
-    positive_skills = _extract_positive_skills_from_text(current_text)
-    negative_skills = _extract_negative_skills_from_text(current_text)
-
-    skill_set = set(previous_skills)
-
-    # 先删除被否定/纠正掉的技能
-    for skill in negative_skills:
-        if skill in skill_set:
-            skill_set.remove(skill)
-
-    # 再加入当前明确新增的技能
-    for skill in positive_skills:
-        if skill not in negative_skills:
-            skill_set.add(skill)
-
-    return sorted(list(skill_set))
+    try:
+        result = extract_skill_updates_by_llm(previous_skills, current_text)
+        return result.get("current_skills", sorted(list(set(previous_skills or []))))
+    except Exception:
+        result = extract_skill_updates_rule_based(previous_skills, current_text)
+        return result.get("current_skills", sorted(list(set(previous_skills or []))))
 
 
 def classify_job_task_core(question: str) -> str:
+    """
+    规则分类器：作为 LLM 分类失败时的兜底逻辑保留。
+    """
     q = _normalize_text(question)
 
     compare_keywords = [
@@ -199,7 +378,6 @@ def classify_job_task_core(question: str) -> str:
         "career path", "job direction", "career direction",
     ]
 
-    # 新增：记忆修正 / 技能纠正
     correction_keywords = [
         "我不会", "我没有", "我不懂", "我不熟", "不是我的技能",
         "去掉", "删掉", "删除", "移除", "去除",
@@ -216,7 +394,6 @@ def classify_job_task_core(question: str) -> str:
         "my skills",
     ]
 
-    # 新增：开放式问题 / 不适合硬塞进图谱查询的问题
     fallback_keywords = [
         "怎么准备面试",
         "怎么选方向",
@@ -254,7 +431,6 @@ def classify_job_task_core(question: str) -> str:
     if any(keyword in q for keyword in job_hint_keywords):
         return "recommend_job"
 
-    # 兜底不再强行归为 recommend_job/general_career_question
     return "fallback_llm"
 
 
@@ -272,7 +448,9 @@ def plan_task_core(task_type: str) -> list[str]:
 
 
 def recommend_jobs_core(skills_text: str) -> dict[str, Any]:
-    user_skills = _extract_skills_from_text(skills_text)
+    user_skills = _normalize_and_filter_skills(
+        [s.strip() for s in skills_text.split("、") if s.strip()]
+    )
     if not user_skills:
         return {
             "input_skills": [],
@@ -317,7 +495,9 @@ def recommend_jobs_core(skills_text: str) -> dict[str, Any]:
 
 
 def analyze_skill_gap_core(job_name: str, skills_text: str) -> dict[str, Any]:
-    user_skills = _extract_skills_from_text(skills_text)
+    user_skills = _normalize_and_filter_skills(
+        [s.strip() for s in skills_text.split("、") if s.strip()]
+    )
     job = graph_service.get_job_by_name(job_name)
     if job is None:
         return {
@@ -338,7 +518,9 @@ def analyze_skill_gap_core(job_name: str, skills_text: str) -> dict[str, Any]:
 
 
 def recommend_courses_core(skills_text: str) -> dict[str, list[str]]:
-    target_skills = _extract_skills_from_text(skills_text)
+    target_skills = _normalize_and_filter_skills(
+        [s.strip() for s in skills_text.split("、") if s.strip()]
+    )
     if not target_skills:
         return {}
 
@@ -379,7 +561,9 @@ def compare_jobs_core(job_a: str, job_b: str, skills_text: str = "") -> dict[str
     only_a = sorted(list(set(skills_a) - set(skills_b)))
     only_b = sorted(list(set(skills_b) - set(skills_a)))
 
-    user_skills = _extract_skills_from_text(skills_text) if skills_text else []
+    user_skills = _normalize_and_filter_skills(
+        [s.strip() for s in skills_text.split("、") if s.strip()]
+    ) if skills_text else []
 
     fit = {}
     if user_skills:
@@ -406,23 +590,10 @@ def build_memory_update_result(
     previous_skills: list[str],
     current_text: str,
 ) -> dict[str, Any]:
-    """
-    给后续 memory_update_node 用的辅助函数。
-    如果你后面在 workflow 里想直接调用，也可以复用它。
-    """
-    previous_skills = sorted(list(set(previous_skills or [])))
-    current_skills = merge_skills_with_correction(previous_skills, current_text)
-
-    removed_skills = [skill for skill in previous_skills if skill not in current_skills]
-    added_skills = [skill for skill in current_skills if skill not in previous_skills]
-
-    return {
-        "previous_skills": previous_skills,
-        "current_skills": current_skills,
-        "added_skills": added_skills,
-        "removed_skills": removed_skills,
-        "message": "已根据当前输入更新技能记忆。",
-    }
+    try:
+        return extract_skill_updates_by_llm(previous_skills, current_text)
+    except Exception:
+        return extract_skill_updates_rule_based(previous_skills, current_text)
 
 
 @tool

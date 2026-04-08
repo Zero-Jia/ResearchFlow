@@ -8,13 +8,13 @@ from app.core.config import settings
 from app.graph.job_graph_state import JobGraphState
 from app.tools.job_tools import (
     classify_job_task_core,
+    normalize_task_type,
     plan_task_core,
     recommend_jobs_core,
     analyze_skill_gap_core,
     recommend_courses_core,
     compare_jobs_core,
     _extract_job_names_from_text,
-    merge_skills_with_correction,
     build_memory_update_result,
 )
 
@@ -43,15 +43,56 @@ llm = init_chat_model(
 )
 
 
-def prepare_context_node(state: JobGraphState):
-    """
-    这版先兼容两种来源：
-    1. history_messages: 由后端路由显式传入最近历史消息
-    2. messages: 当前 graph 调用时传入的消息列表
+def classify_job_task_by_llm(question: str, conversation_text: str = "") -> str:
+    prompt = f"""
+你是一个职业规划系统中的“任务分类器”。
 
-    后续你把 chat route / chat service 发我后，
-    我再帮你把“按 session_id 查最近消息”接进来。
-    """
+请根据用户当前问题以及最近对话上下文，将任务分类为以下 7 种之一：
+- recommend_job
+- analyze_gap
+- recommend_course
+- compare_job
+- general_career_question
+- memory_update
+- fallback_llm
+
+分类标准：
+1. recommend_job
+   - 用户想知道适合什么岗位、推荐什么工作、有哪些适合自己的职位
+2. analyze_gap
+   - 用户围绕某个岗位问“我还差什么技能”“技能差距是什么”
+3. recommend_course
+   - 用户明确要学习建议、课程推荐、学习路径
+4. compare_job
+   - 用户要比较两个岗位、问区别、哪个更适合
+5. general_career_question
+   - 用户在问职业方向、发展路径、有哪些方向可选
+6. memory_update
+   - 用户在纠正自己的技能信息，或在问“你记得我会什么 / 我的技能有哪些”
+7. fallback_llm
+   - 开放式追问，不适合直接进入图谱推荐/分析流程，例如面试建议、简历建议、怎么准备
+
+要求：
+- 只能输出一个标签
+- 不要解释
+- 不要输出 JSON
+- 不要输出多余文字
+
+最近对话上下文：
+{conversation_text}
+
+当前问题：
+{question}
+"""
+    try:
+        answer = llm.invoke(prompt)
+        raw = answer.content if isinstance(answer.content, str) else str(answer.content)
+        return normalize_task_type(raw)
+    except Exception:
+        return ""
+
+
+def prepare_context_node(state: JobGraphState):
     history_messages = state.get("history_messages", []) or []
     current_messages = state.get("messages", []) or []
 
@@ -76,45 +117,62 @@ def prepare_context_node(state: JobGraphState):
     history_text = "\n".join(conversation_parts[:-1]) if conversation_parts else ""
     conversation_text = "\n".join(conversation_parts).strip()
 
-    # 先从历史对话中恢复已有技能
     previous_skills = state.get("previous_skills", []) or []
 
-    # 如果外部没传 previous_skills，就退化为从历史文本里提取
-    # 注意：这里不直接使用旧版 extract_skills_from_question，
-    # 因为我们希望后续统一走 merge_skills_with_correction
+    # 没有外部传入 previous_skills 时，尝试从历史文本恢复一次
     if not previous_skills and history_text:
-        previous_skills = merge_skills_with_correction([], history_text)
+        history_memory_result = build_memory_update_result([], history_text)
+        previous_skills = history_memory_result.get("current_skills", [])
 
-    # 再结合当前输入做修正/新增
-    merged_skills = merge_skills_with_correction(previous_skills, current_question)
+    memory_result = build_memory_update_result(previous_skills, current_question)
+    merged_skills = memory_result.get("current_skills", previous_skills)
 
     update = {
         "current_question": current_question,
         "conversation_text": conversation_text,
         "previous_skills": previous_skills,
         "merged_skills": merged_skills,
+        "skill_update_source": memory_result.get("update_source", "unknown"),
+        "skill_update_added": memory_result.get("added_skills", []),
+        "skill_update_removed": memory_result.get("removed_skills", []),
     }
     update.update(
         _append_reasoning(
             state,
-            f"已结合历史上下文与当前输入，整理技能集合：{', '.join(merged_skills) if merged_skills else '无'}",
+            f"已结合历史上下文与当前输入更新技能集合："
+            f"当前技能={', '.join(merged_skills) if merged_skills else '无'}；"
+            f"新增={', '.join(memory_result.get('added_skills', [])) if memory_result.get('added_skills') else '无'}；"
+            f"移除={', '.join(memory_result.get('removed_skills', [])) if memory_result.get('removed_skills') else '无'}；"
+            f"来源={memory_result.get('update_source', 'unknown')}",
         )
     )
     return update
 
 
 def planner_node(state: JobGraphState):
-    task_type = classify_job_task_core(state.get("current_question", "") or state.get("conversation_text", ""))
+    current_question = state.get("current_question", "") or state.get("conversation_text", "")
+    conversation_text = state.get("conversation_text", "") or ""
+
+    llm_task_type = classify_job_task_by_llm(current_question, conversation_text)
+
+    if llm_task_type:
+        task_type = llm_task_type
+        planner_source = "llm_classifier"
+    else:
+        task_type = classify_job_task_core(current_question)
+        planner_source = "rule_fallback"
+
     plan = plan_task_core(task_type)
 
     update = {
         "task_type": task_type,
         "plan": plan,
+        "planner_source": planner_source,
     }
     update.update(
         _append_reasoning(
             state,
-            f"Planner 已判定任务类型为 {task_type}，执行计划为：{' -> '.join(plan)}",
+            f"Planner 已判定任务类型为 {task_type}，来源：{planner_source}，执行计划为：{' -> '.join(plan)}",
         )
     )
     return update
@@ -192,8 +250,6 @@ def course_node(state: JobGraphState):
             top_job = recommended_jobs[0]
             target_skills = missing_map.get(top_job, [])
 
-    # 如果连缺失技能都没有，就不要直接拿 merged_skills 去推荐课程
-    # 否则“我会 Python、Pandas”会被误当成“我想学 Python、Pandas”
     skills_text = "、".join(target_skills) if target_skills else ""
     result = recommend_courses_core(skills_text) if skills_text else {}
 
@@ -237,12 +293,16 @@ def memory_update_node(state: JobGraphState):
     update = {
         "memory_result": result,
         "merged_skills": result.get("current_skills", []),
+        "skill_update_source": result.get("update_source", "unknown"),
+        "skill_update_added": result.get("added_skills", []),
+        "skill_update_removed": result.get("removed_skills", []),
     }
     update.update(
         _append_reasoning(
             state,
             f"已完成技能记忆修正，新增：{', '.join(result.get('added_skills', [])) if result.get('added_skills') else '无'}；"
-            f"移除：{', '.join(result.get('removed_skills', [])) if result.get('removed_skills') else '无'}",
+            f"移除：{', '.join(result.get('removed_skills', [])) if result.get('removed_skills') else '无'}；"
+            f"来源：{result.get('update_source', 'unknown')}",
         )
     )
     return update
@@ -302,6 +362,7 @@ def summarize_node(state: JobGraphState):
             "added_skills": memory_res.get("added_skills", []),
             "removed_skills": memory_res.get("removed_skills", []),
             "message": memory_res.get("message", ""),
+            "update_source": memory_res.get("update_source", ""),
         }
 
         prompt = f"""
